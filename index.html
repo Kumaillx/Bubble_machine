@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ESP32 Bubble Machine Web BLE Controller</title>
+    <style>
+        :root {
+            --bg-color: #06050a;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #ffffff;
+            --text-secondary: #8a8d9f;
+            --color-on: #00f0ff;
+            --color-off: #ff007f;
+            --glow-on: 0 0 25px rgba(0, 240, 255, 0.5);
+            --glow-off: 0 0 25px rgba(255, 0, 127, 0.4);
+            --glow-connect: 0 0 25px rgba(124, 58, 237, 0.5);
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            background: radial-gradient(circle at center, #15112c 0%, var(--bg-color) 100%);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 20px;
+        }
+        .bubble-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .container {
+            width: 100%;
+            max-width: 380px;
+            z-index: 10;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            padding: 35px 25px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+            background: linear-gradient(135deg, #ffffff 40%, #c7d2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+        .status-container {
+            margin-bottom: 30px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.4s ease;
+        }
+        .status-badge.connected-on {
+            color: var(--color-on);
+            border-color: rgba(0, 240, 255, 0.3);
+            background: rgba(0, 240, 255, 0.06);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+        }
+        .status-badge.connected-off {
+            color: #fbbf24; /* Amber for Idle/Connected Off */
+            border-color: rgba(251, 191, 36, 0.3);
+            background: rgba(251, 191, 36, 0.06);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.1);
+        }
+        .status-badge.disconnected {
+            color: var(--text-secondary);
+            border-color: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+            display: inline-block;
+        }
+        .status-badge.connected-on .status-dot {
+            animation: pulse-dot-cyan 1.5s infinite;
+        }
+        .status-badge.connected-off .status-dot {
+            animation: pulse-dot-amber 1.5s infinite;
+        }
+        .connect-section {
+            margin: 20px 0 30px;
+        }
+        .connect-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 16px;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .connect-btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -50%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.15), transparent);
+            transform: skewX(-25deg);
+            transition: 0.75s;
+        }
+        .connect-btn:hover::after {
+            left: 125%;
+        }
+        .connect-btn:active {
+            transform: scale(0.97);
+            box-shadow: 0 4px 10px rgba(124, 58, 237, 0.2);
+        }
+        .control-panel {
+            display: none;
+            margin: 20px 0 30px;
+            animation: fadeIn 0.5s ease forwards;
+        }
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .ctrl-btn {
+            padding: 22px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            outline: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .ctrl-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+        }
+        .ctrl-btn-on {
+            background: radial-gradient(circle at 30% 30%, rgba(0, 240, 255, 0.15) 0%, rgba(0, 0, 0, 0.3) 100%), rgba(255, 255, 255, 0.02);
+            border-color: rgba(0, 240, 255, 0.2);
+        }
+        .ctrl-btn-on:active {
+            transform: scale(0.95);
+            background: rgba(0, 240, 255, 0.25);
+            box-shadow: var(--glow-on);
+            border-color: var(--color-on);
+        }
+        .ctrl-btn-on.active {
+            background: radial-gradient(circle at 30% 30%, var(--color-on) 0%, #1e40af 100%);
+            box-shadow: var(--glow-on);
+            border-color: var(--color-on);
+            text-shadow: 0 0 8px rgba(255,255,255,0.6);
+        }
+        .ctrl-btn-off {
+            background: radial-gradient(circle at 30% 30%, rgba(255, 0, 127, 0.15) 0%, rgba(0, 0, 0, 0.3) 100%), rgba(255, 255, 255, 0.02);
+            border-color: rgba(255, 0, 127, 0.2);
+        }
+        .ctrl-btn-off:active {
+            transform: scale(0.95);
+            background: rgba(255, 0, 127, 0.25);
+            box-shadow: var(--glow-off);
+            border-color: var(--color-off);
+        }
+        .ctrl-btn-off.active {
+            background: radial-gradient(circle at 30% 30%, var(--color-off) 0%, #9d174d 100%);
+            box-shadow: var(--glow-off);
+            border-color: var(--color-off);
+            text-shadow: 0 0 8px rgba(255,255,255,0.6);
+        }
+        .console-container {
+            text-align: left;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 15px;
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+            color: #34d399;
+            height: 120px;
+            overflow-y: auto;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+        }
+        .console-line {
+            margin-bottom: 6px;
+            opacity: 0.85;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+        .console-line:last-child {
+            margin-bottom: 0;
+        }
+        .console-line span {
+            color: #60a5fa;
+            margin-right: 6px;
+            font-weight: 600;
+        }
+        .bubble {
+            position: absolute;
+            bottom: -60px;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.03) 60%, rgba(0, 240, 255, 0.25) 90%);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 50%;
+            box-shadow: inset 0 2px 8px rgba(255, 255, 255, 0.5), 0 0 12px rgba(0, 240, 255, 0.15);
+            animation: floatUp 6s linear infinite;
+        }
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) translateX(0) scale(0.8);
+                opacity: 0;
+            }
+            15% {
+                opacity: 0.85;
+            }
+            90% {
+                opacity: 0.85;
+            }
+            100% {
+                transform: translateY(-115vh) translateX(var(--drift)) scale(1.3);
+                opacity: 0;
+            }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse-dot-cyan {
+            0%, 100% { opacity: 1; filter: drop-shadow(0 0 3px var(--color-on)); }
+            50% { opacity: 0.4; }
+        }
+        @keyframes pulse-dot-amber {
+            0%, 100% { opacity: 1; filter: drop-shadow(0 0 3px #fbbf24); }
+            50% { opacity: 0.4; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bubble-area" id="bubbleArea"></div>
+    <div class="container">
+        <div class="card">
+            <h1>Bubble Machine</h1>
+            <div class="subtitle">BLE Controller Dashboard</div>
+            
+            <div class="status-container">
+                <div class="status-badge disconnected" id="statusBadge">
+                    <span class="status-dot"></span><span id="statusText">Disconnected</span>
+                </div>
+            </div>
+            
+            <div class="connect-section" id="connectSection">
+                <button class="connect-btn" id="connectBtn" onclick="connectBLE()">Connect Device</button>
+            </div>
+            
+            <div class="control-panel" id="controlPanel">
+                <div class="buttons-grid">
+                    <button class="ctrl-btn ctrl-btn-on" id="btnOn" onclick="turnOn()">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0" />
+                        </svg>
+                        Turn On
+                    </button>
+                    <button class="ctrl-btn ctrl-btn-off active" id="btnOff" onclick="turnOff()">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                        </svg>
+                        Turn Off
+                    </button>
+                </div>
+            </div>
+            
+            <div class="console-container" id="console">
+                <div class="console-line"><span>[SYS]</span>Ready to search for ESP32.</div>
+                <div class="console-line"><span>[SYS]</span>Click 'Connect Device' to pair.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let device = null;
+        let characteristic = null;
+        let isDeviceOn = false;
+        let bubbleInterval = null;
+
+        const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+        const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+
+        const consoleEl = document.getElementById('console');
+        const badgeEl = document.getElementById('statusBadge');
+        const statusTextEl = document.getElementById('statusText');
+        const connectSection = document.getElementById('connectSection');
+        const controlPanel = document.getElementById('controlPanel');
+        const bubbleArea = document.getElementById('bubbleArea');
+        const btnOn = document.getElementById('btnOn');
+        const btnOff = document.getElementById('btnOff');
+
+        function log(source, text) {
+            const time = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.className = 'console-line';
+            line.innerHTML = `<span>[${time}] [${source}]</span>${text}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function createBubble() {
+            if (!isDeviceOn) return;
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            const size = Math.random() * 24 + 10;
+            const left = Math.random() * 100;
+            const drift = (Math.random() - 0.5) * 120;
+            const duration = Math.random() * 3 + 3.5;
+            
+            bubble.style.width = size + 'px';
+            bubble.style.height = size + 'px';
+            bubble.style.left = left + '%';
+            bubble.style.setProperty('--drift', drift + 'px');
+            bubble.style.animationDuration = duration + 's';
+            
+            bubbleArea.appendChild(bubble);
+            
+            setTimeout(() => {
+                bubble.remove();
+            }, duration * 1000);
+        }
+
+        function setUIState(active) {
+            isDeviceOn = active;
+            if (active) {
+                statusTextEl.textContent = 'Active';
+                badgeEl.className = 'status-badge connected-on';
+                btnOn.classList.add('active');
+                btnOff.classList.remove('active');
+                if (!bubbleInterval) {
+                    bubbleInterval = setInterval(createBubble, 120);
+                }
+            } else {
+                statusTextEl.textContent = 'Connected (Idle)';
+                badgeEl.className = 'status-badge connected-off';
+                btnOn.classList.remove('active');
+                btnOff.classList.add('active');
+                if (bubbleInterval) {
+                    clearInterval(bubbleInterval);
+                    bubbleInterval = null;
+                }
+            }
+        }
+
+        async function connectBLE() {
+            log('SYS', 'Requesting Bluetooth device...');
+            try {
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'ESP32_Bubble_Machine' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                log('SYS', 'Connecting to GATT Server...');
+                device.addEventListener('gattserverdisconnected', onDisconnected);
+                const server = await device.gatt.connect();
+
+                log('SYS', 'Getting Primary Service...');
+                const service = await server.getPrimaryService(SERVICE_UUID);
+
+                log('SYS', 'Getting Characteristic...');
+                characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+                log('SYS', 'Subscribing to notifications...');
+                await characteristic.startNotifications();
+                characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+
+                log('SYS', 'Paired successfully!');
+                connectSection.style.display = 'none';
+                controlPanel.style.display = 'block';
+                setUIState(false);
+            } catch (error) {
+                log('ERR', 'Failed to connect: ' + error.message);
+                console.error(error);
+            }
+        }
+
+        function onDisconnected() {
+            log('SYS', 'Bluetooth connection lost.');
+            connectSection.style.display = 'block';
+            controlPanel.style.display = 'none';
+            badgeEl.className = 'status-badge disconnected';
+            statusTextEl.textContent = 'Disconnected';
+            setUIState(false);
+        }
+
+        function handleNotifications(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder('utf-8');
+            const text = decoder.decode(value);
+            log('ESP32', text);
+            
+            if (text.includes('[ON]')) {
+                setUIState(true);
+            } else if (text.includes('[OFF]')) {
+                setUIState(false);
+            }
+        }
+
+        async function sendCommand(cmd) {
+            if (!characteristic) {
+                log('ERR', 'No Bluetooth connection.');
+                return;
+            }
+            try {
+                const encoder = new TextEncoder();
+                await characteristic.writeValue(encoder.encode(cmd));
+                log('SYS', `Sent command: ${cmd}`);
+            } catch (error) {
+                log('ERR', 'Failed to send command: ' + error.message);
+            }
+        }
+
+        function turnOn() {
+            sendCommand('O');
+        }
+
+        function turnOff() {
+            sendCommand('F');
+        }
+    </script>
+</body>
+</html>
