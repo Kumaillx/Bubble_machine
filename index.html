@@ -574,23 +574,43 @@
 
         function showBluetoothUnsupportedNotice() {
             connectBtn.disabled = true;
+            connectBtn.style.background = 'linear-gradient(135deg, #4b5563 0%, #374151 100%)';
+            connectBtn.style.cursor = 'not-allowed';
+            connectBtn.style.boxShadow = 'none';
+
+            const note = document.createElement('div');
+            note.style.marginTop = '20px';
+            note.style.fontSize = '12px';
+            note.style.color = '#ff007f';
+            note.style.fontWeight = '600';
+            note.style.lineHeight = '1.5';
+            note.style.padding = '10px 15px';
+            note.style.borderRadius = '12px';
+            note.style.background = 'rgba(255, 0, 127, 0.08)';
+            note.style.border = '1px solid rgba(255, 0, 127, 0.2)';
 
             if (!window.isSecureContext) {
                 log('ERR', 'Bluetooth requires HTTPS (or localhost). Open this page from a secure origin.');
                 connectBtn.textContent = 'Requires HTTPS';
+                note.innerHTML = '⚠️ <strong>Insecure Context:</strong> Web Bluetooth requires a secure connection (HTTPS). Please redeploy or open this page via an HTTPS URL.';
+                document.querySelector('.card').appendChild(note);
                 return;
             }
 
-            if (isIPhoneSafari()) {
+            if (isIPhoneSafari() || /iPhone|iPad/i.test(navigator.userAgent)) {
                 log('ERR', 'iPhone Safari does not support Web Bluetooth requestDevice().');
-                log('SYS', 'Use Android Chrome, desktop Chrome/Edge, or create a native iOS app (CoreBluetooth).');
-                connectBtn.textContent = 'iPhone Safari Not Supported';
+                log('SYS', 'Use Android Chrome, desktop Chrome/Edge, or wrapper apps like Blueify/WebBLE.');
+                connectBtn.textContent = 'iOS Safari Not Supported';
+                note.innerHTML = '⚠️ <strong>iOS / iPhone users:</strong> Apple Safari doesn\'t support Web Bluetooth natively. Please open this site inside the free <strong>Blueify</strong> or <strong>WebBLE</strong> browser app from the App Store.';
+                document.querySelector('.card').appendChild(note);
                 return;
             }
 
             log('ERR', 'This browser does not support Web Bluetooth.');
             log('SYS', 'Try Chrome/Edge on Android or desktop with HTTPS.');
             connectBtn.textContent = 'Bluetooth Not Supported';
+            note.innerHTML = '⚠️ <strong>Unsupported Browser:</strong> This browser does not support Web Bluetooth. Please try Google Chrome or Edge on Android or Desktop.';
+            document.querySelector('.card').appendChild(note);
         }
 
         async function connectBLE() {
@@ -674,7 +694,6 @@
         function turnOn() {
             sendCommand('O');
         }
-
         function turnOff() {
             sendCommand('F');
         }
