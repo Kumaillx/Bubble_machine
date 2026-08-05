@@ -36,6 +36,90 @@
             overflow: hidden;
             padding: 20px;
         }
+        .app-root {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .app-root.hidden {
+            display: none;
+        }
+        .auth-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.18) 0%, rgba(6, 5, 10, 0.95) 60%);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .auth-overlay.hidden {
+            display: none;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 360px;
+            padding: 28px 22px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+            text-align: center;
+        }
+        .auth-title {
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        .auth-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 18px;
+            letter-spacing: 0.4px;
+        }
+        .auth-input {
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(0, 0, 0, 0.28);
+            color: #fff;
+            border-radius: 12px;
+            padding: 13px 12px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            outline: none;
+            margin-bottom: 12px;
+        }
+        .auth-input:focus {
+            border-color: rgba(96, 165, 250, 0.8);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+        .auth-btn {
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            padding: 13px;
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+            color: #fff;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .auth-error {
+            min-height: 18px;
+            margin-top: 10px;
+            color: #fb7185;
+            font-size: 12px;
+            font-weight: 600;
+        }
         .bubble-area {
             position: absolute;
             top: 0;
@@ -176,6 +260,12 @@
             transform: scale(0.97);
             box-shadow: 0 4px 10px rgba(124, 58, 237, 0.2);
         }
+        .connect-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+            filter: grayscale(0.25);
+            box-shadow: none;
+        }
         .control-panel {
             display: none;
             margin: 20px 0 30px;
@@ -312,42 +402,54 @@
     </style>
 </head>
 <body>
-    <div class="bubble-area" id="bubbleArea"></div>
-    <div class="container">
-        <div class="card">
-            <h1>Bubble Machine</h1>
-            <div class="subtitle">BLE Controller Dashboard</div>
-            
-            <div class="status-container">
-                <div class="status-badge disconnected" id="statusBadge">
-                    <span class="status-dot"></span><span id="statusText">Disconnected</span>
+    <div class="auth-overlay" id="authOverlay">
+        <form class="auth-card" id="authForm">
+            <div class="auth-title">Protected Access</div>
+            <div class="auth-subtitle">Enter password to open Bubble Machine controller</div>
+            <input class="auth-input" id="authInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="Password" required>
+            <button class="auth-btn" type="submit">Unlock</button>
+            <div class="auth-error" id="authError"></div>
+        </form>
+    </div>
+
+    <div class="app-root hidden" id="appRoot">
+        <div class="bubble-area" id="bubbleArea"></div>
+        <div class="container">
+            <div class="card">
+                <h1>Bubble Machine</h1>
+                <div class="subtitle">BLE Controller Dashboard</div>
+                
+                <div class="status-container">
+                    <div class="status-badge disconnected" id="statusBadge">
+                        <span class="status-dot"></span><span id="statusText">Disconnected</span>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="connect-section" id="connectSection">
-                <button class="connect-btn" id="connectBtn" onclick="connectBLE()">Connect Device</button>
-            </div>
-            
-            <div class="control-panel" id="controlPanel">
-                <div class="buttons-grid">
-                    <button class="ctrl-btn ctrl-btn-on" id="btnOn" onclick="turnOn()">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0" />
-                        </svg>
-                        Turn On
-                    </button>
-                    <button class="ctrl-btn ctrl-btn-off active" id="btnOff" onclick="turnOff()">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-                        </svg>
-                        Turn Off
-                    </button>
+                
+                <div class="connect-section" id="connectSection">
+                    <button class="connect-btn" id="connectBtn" onclick="connectBLE()">Connect Device</button>
                 </div>
-            </div>
-            
-            <div class="console-container" id="console">
-                <div class="console-line"><span>[SYS]</span>Ready to search for ESP32.</div>
-                <div class="console-line"><span>[SYS]</span>Click 'Connect Device' to pair.</div>
+                
+                <div class="control-panel" id="controlPanel">
+                    <div class="buttons-grid">
+                        <button class="ctrl-btn ctrl-btn-on" id="btnOn" onclick="turnOn()">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0" />
+                            </svg>
+                            Turn On
+                        </button>
+                        <button class="ctrl-btn ctrl-btn-off active" id="btnOff" onclick="turnOff()">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                            </svg>
+                            Turn Off
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="console-container" id="console">
+                    <div class="console-line"><span>[SYS]</span>Ready to search for ESP32.</div>
+                    <div class="console-line"><span>[SYS]</span>Click 'Connect Device' to pair.</div>
+                </div>
             </div>
         </div>
     </div>
@@ -357,6 +459,8 @@
         let characteristic = null;
         let isDeviceOn = false;
         let bubbleInterval = null;
+        const ACCESS_PASSWORD = '1214';
+        const AUTH_STORAGE_KEY = 'bubble_machine_unlocked';
 
         const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
         const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
@@ -369,6 +473,51 @@
         const bubbleArea = document.getElementById('bubbleArea');
         const btnOn = document.getElementById('btnOn');
         const btnOff = document.getElementById('btnOff');
+        const connectBtn = document.getElementById('connectBtn');
+        const appRoot = document.getElementById('appRoot');
+        const authOverlay = document.getElementById('authOverlay');
+        const authForm = document.getElementById('authForm');
+        const authInput = document.getElementById('authInput');
+        const authError = document.getElementById('authError');
+
+        function unlockApp() {
+            appRoot.classList.remove('hidden');
+            authOverlay.classList.add('hidden');
+        }
+
+        function lockApp() {
+            appRoot.classList.add('hidden');
+            authOverlay.classList.remove('hidden');
+            authInput.value = '';
+            authInput.focus();
+        }
+
+        function handleAuthSubmit(event) {
+            event.preventDefault();
+            const entered = authInput.value.trim();
+
+            if (entered === ACCESS_PASSWORD) {
+                sessionStorage.setItem(AUTH_STORAGE_KEY, '1');
+                authError.textContent = '';
+                unlockApp();
+                return;
+            }
+
+            authError.textContent = 'Wrong password. Try again.';
+            authInput.value = '';
+            authInput.focus();
+        }
+
+        function supportsWebBluetooth() {
+            return !!(navigator.bluetooth && typeof navigator.bluetooth.requestDevice === 'function');
+        }
+
+        function isIPhoneSafari() {
+            const ua = navigator.userAgent || '';
+            const isiPhone = /iPhone/i.test(ua);
+            const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+            return isiPhone && isSafari;
+        }
 
         function log(source, text) {
             const time = new Date().toLocaleTimeString();
@@ -423,7 +572,38 @@
             }
         }
 
+        function showBluetoothUnsupportedNotice() {
+            connectBtn.disabled = true;
+
+            if (!window.isSecureContext) {
+                log('ERR', 'Bluetooth requires HTTPS (or localhost). Open this page from a secure origin.');
+                connectBtn.textContent = 'Requires HTTPS';
+                return;
+            }
+
+            if (isIPhoneSafari()) {
+                log('ERR', 'iPhone Safari does not support Web Bluetooth requestDevice().');
+                log('SYS', 'Use Android Chrome, desktop Chrome/Edge, or create a native iOS app (CoreBluetooth).');
+                connectBtn.textContent = 'iPhone Safari Not Supported';
+                return;
+            }
+
+            log('ERR', 'This browser does not support Web Bluetooth.');
+            log('SYS', 'Try Chrome/Edge on Android or desktop with HTTPS.');
+            connectBtn.textContent = 'Bluetooth Not Supported';
+        }
+
         async function connectBLE() {
+            if (!supportsWebBluetooth()) {
+                showBluetoothUnsupportedNotice();
+                return;
+            }
+
+            if (!window.isSecureContext) {
+                showBluetoothUnsupportedNotice();
+                return;
+            }
+
             log('SYS', 'Requesting Bluetooth device...');
             try {
                 device = await navigator.bluetooth.requestDevice({
@@ -497,6 +677,18 @@
 
         function turnOff() {
             sendCommand('F');
+        }
+
+        authForm.addEventListener('submit', handleAuthSubmit);
+
+        if (sessionStorage.getItem(AUTH_STORAGE_KEY) === '1') {
+            unlockApp();
+        } else {
+            lockApp();
+        }
+
+        if (!supportsWebBluetooth() || !window.isSecureContext) {
+            showBluetoothUnsupportedNotice();
         }
     </script>
 </body>
